@@ -30,6 +30,10 @@ class TflClient:
                 "disruptions": line["disruptions"],
                 "serviceTypes": [st["name"] for st in line["serviceTypes"]],
             }
+
+    def get_line_details(self, line_id: str):
+        endpoint = f"Line/{line_id}"
+        return self._execute_request(endpoint)
         
 
     def _build_url(self, endpoint: str, params: dict = {}) -> str:
