@@ -1,6 +1,7 @@
 from src.config.config_main import tfl_config
 import requests
 from typing import List
+import time
 
 class TflClient:
     def __init__(self, config):
@@ -34,6 +35,39 @@ class TflClient:
     def get_line_details(self, line_id: str):
         endpoint = f"Line/{line_id}"
         return self._execute_request(endpoint)
+
+    def get_stops_by_mode(self, modes: List[str], page: int = None):
+        """
+        Get stop points filtered by transport modes.
+        
+        Args:
+            modes: List of mode names (e.g., ['tube', 'dlr'])
+            page: Page number for pagination (required for bus mode)
+        
+        Returns:
+            StopPointsResponse dictionary containing stopPoints array
+        """
+        endpoint = f"StopPoint/Mode/{','.join(modes)}"
+        params = {}
+        if page is not None:
+            params['page'] = page
+        
+        response = self._execute_request(endpoint, params)
+        return response
+
+    def get_route_sequence(self, line_id: str, direction: str = "all"):
+        """
+        Get ordered stop sequence for a line.
+        
+        Args:
+            line_id: Single line identifier (e.g., 'victoria')
+            direction: 'inbound', 'outbound', or 'all'
+        
+        Returns:
+            RouteSequence object with ordered stop sequences
+        """
+        endpoint = f"Line/{line_id}/Route/Sequence/{direction}"
+        return self._execute_request(endpoint)
         
 
     def _build_url(self, endpoint: str, params: dict = {}) -> str:
@@ -47,12 +81,37 @@ class TflClient:
     def _execute_request(self, endpoint: str, params: dict = {}) -> dict:
         url = self._build_url(endpoint, params)
 
-        try:
-            response = requests.get(url)
-            response.raise_for_status()
-            return response.json()
-        except requests.RequestException as e:
-            #TODO: add logging
-            raise
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(url, timeout=30)
+                response.raise_for_status()
+                
+                # Add small delay to avoid rate limiting
+                time.sleep(0.5)
+                
+                return response.json()
+            except requests.exceptions.Timeout:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s
+                    print(f"Request timeout, retrying in {wait_time}s... (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                else:
+                    raise
+            except requests.exceptions.HTTPError as e:
+                if e.response.status_code == 504 and attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    print(f"504 Gateway Timeout, retrying in {wait_time}s... (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                else:
+                    raise
+            except requests.RequestException as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    print(f"Request failed: {e}, retrying in {wait_time}s... (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                else:
+                    #TODO: add logging
+                    raise
 
 tfl_client = TflClient(tfl_config)
