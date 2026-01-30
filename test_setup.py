@@ -11,13 +11,12 @@ def test_database_connection():
     print("Testing database connection...")
     try:
         with ConnectionBroker.get_session() as session:
-            # Try a simple query
             result = session.execute(text("SELECT version();")).fetchone()
-            print(f"✓ Connected to PostgreSQL: {result[0][:50]}...")
-        print("✓ Database connection successful\n")
+            print(f"Connected to PostgreSQL: {result[0][:50] if result else "No result."}...")
+        print("Database connection successful\n")
         return True
     except Exception as e:
-        print(f"✗ Database connection failed: {e}\n")
+        print(f"Database connection failed: {e}\n")
         return False
 
 def test_postgis_extension():
@@ -26,11 +25,11 @@ def test_postgis_extension():
     try:
         with ConnectionBroker.get_session() as session:
             result = session.execute(text("SELECT PostGIS_version();")).fetchone()
-            print(f"✓ PostGIS version: {result[0]}")
-        print("✓ PostGIS extension available\n")
+            print(f"PostGIS version: {result[0] if result else 'Not installed'}")
+        print("PostGIS extension available\n")
         return True
     except Exception as e:
-        print(f"✗ PostGIS extension check failed: {e}\n")
+        print(f"PostGIS extension check failed: {e}\n")
         return False
 
 def test_create_tables():
@@ -38,10 +37,10 @@ def test_create_tables():
     print("Testing table creation...")
     try:
         ConnectionBroker.create_tables()
-        print("✓ Tables created successfully\n")
+        print("Tables created successfully\n")
         return True
     except Exception as e:
-        print(f"✗ Table creation failed: {e}\n")
+        print(f"Table creation failed: {e}\n")
         return False
 
 def test_table_structure():
@@ -49,48 +48,44 @@ def test_table_structure():
     print("Verifying table structure...")
     try:
         with ConnectionBroker.get_session() as session:
-            # Check stops table
             result = session.execute(text("""
                 SELECT column_name, data_type 
                 FROM information_schema.columns 
                 WHERE table_name = 'stops'
                 ORDER BY ordinal_position;
             """)).fetchall()
-            print(f"✓ Stops table has {len(result)} columns")
+            print(f"Stops table has {len(result)} columns")
             
-            # Check services table
             result = session.execute(text("""
                 SELECT column_name, data_type 
                 FROM information_schema.columns 
                 WHERE table_name = 'services'
                 ORDER BY ordinal_position;
             """)).fetchall()
-            print(f"✓ Services table has {len(result)} columns")
-            
-            # Check edges table
+            print(f"Services table has {len(result)} columns")
+
             result = session.execute(text("""
                 SELECT column_name, data_type 
                 FROM information_schema.columns 
                 WHERE table_name = 'edges'
                 ORDER BY ordinal_position;
             """)).fetchall()
-            print(f"✓ Edges table has {len(result)} columns")
-            
-            # Check for spatial index
+            print(f"Edges table has {len(result)} columns")
+ 
             result = session.execute(text("""
                 SELECT indexname 
                 FROM pg_indexes 
                 WHERE tablename = 'stops' AND indexname LIKE '%location%';
             """)).fetchall()
             if result:
-                print(f"✓ Spatial index found: {result[0][0]}")
+                print(f"Spatial index found: {result[0][0]}")
             else:
                 print("⚠️  Warning: No spatial index found on stops.location")
         
-        print("✓ Table structure verified\n")
+        print("Table structure verified\n")
         return True
     except Exception as e:
-        print(f"✗ Table structure verification failed: {e}\n")
+        print(f"Table structure verification failed: {e}\n")
         return False
 
 def main():
@@ -118,9 +113,9 @@ def main():
     print(f"Passed: {passed}/{total}")
     
     if passed == total:
-        print("✓ All tests passed! Ready to run ingestion pipeline.")
+        print("All tests passed! Ready to run ingestion pipeline.")
     else:
-        print("✗ Some tests failed. Please fix issues before running ingestion.")
+        print("Some tests failed. Please fix issues before running ingestion.")
     print("="*60)
 
 if __name__ == "__main__":
