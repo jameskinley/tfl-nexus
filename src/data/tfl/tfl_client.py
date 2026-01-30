@@ -68,6 +68,69 @@ class TflClient:
         """
         endpoint = f"Line/{line_id}/Route/Sequence/{direction}"
         return self._execute_request(endpoint)
+    
+    def get_all_line_statuses(self, modes: List[str], detail: bool = True):
+        """
+        Get current status for all lines of given modes.
+        
+        Args:
+            modes: List of mode names (e.g., ['tube', 'dlr'])
+            detail: Include disruption details (default True)
+        
+        Returns:
+            List of Line objects with lineStatuses arrays
+        """
+        endpoint = f"Line/Mode/{','.join(modes)}/Status"
+        params = {'detail': str(detail).lower()}
+        return self._execute_request(endpoint, params)
+    
+    def get_line_status(self, line_ids: List[str], detail: bool = True):
+        """
+        Get status for specific lines.
+        
+        Args:
+            line_ids: List of line IDs (max ~20)
+            detail: Include disruption details
+        
+        Returns:
+            List of Line objects
+        """
+        endpoint = f"Line/{','.join(line_ids)}/Status"
+        params = {'detail': str(detail).lower()}
+        return self._execute_request(endpoint, params)
+    
+    def get_severity_codes(self):
+        """
+        Get list of valid severity codes.
+        
+        Returns:
+            List of StatusSeverity objects
+        """
+        endpoint = "Line/Meta/Severity"
+        return self._execute_request(endpoint)
+    
+    def get_disruption_categories(self):
+        """
+        Get list of valid disruption categories.
+        
+        Returns:
+            List of category strings
+        """
+        endpoint = "Line/Meta/DisruptionCategories"
+        return self._execute_request(endpoint)
+    
+    def get_stop_arrivals(self, stop_id: str):
+        """
+        Get arrival predictions for a specific stop.
+        
+        Args:
+            stop_id: NaPTAN ID of the stop
+        
+        Returns:
+            List of Prediction objects
+        """
+        endpoint = f"StopPoint/{stop_id}/Arrivals"
+        return self._execute_request(endpoint)
         
 
     def _build_url(self, endpoint: str, params: dict = {}) -> str:

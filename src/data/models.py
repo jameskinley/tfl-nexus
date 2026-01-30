@@ -94,37 +94,51 @@ class HistoricalDelay(Base):
     __tablename__ = 'historical_delays'
 
     delay_id = Column(Integer, primary_key=True, autoincrement=True)
-    edge_id = Column(Integer, ForeignKey('edges.edge_id'), nullable=False, index=True)
+    service_id = Column(Integer, ForeignKey('services.service_id'), nullable=False, index=True)
     timestamp = Column(DateTime, nullable=False, index=True)
-    delay_seconds = Column(Integer, nullable=False)
-    cause_category = Column(String(100), nullable=True)
-    severity = Column(String(20), nullable=True)
+    delay_minutes = Column(Integer, nullable=False)
+    severity = Column(String(50), nullable=True)
+    hour_of_day = Column(Integer, nullable=False, index=True)
+    day_of_week = Column(Integer, nullable=False, index=True)
+    is_peak_hour = Column(Boolean, nullable=True)
+    data_source = Column(String(30), nullable=False, index=True)
+    confidence_level = Column(String(10), nullable=False)
+    timetable_version = Column(String(50), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    # Relationships
-    edge = relationship('Edge')
+    service = relationship('Service')
+
+    __table_args__ = (
+        Index('idx_service_timestamp', 'service_id', 'timestamp'),
+    )
 
     def __repr__(self):
-        return f"<HistoricalDelay(id={self.delay_id}, edge={self.edge_id}, delay={self.delay_seconds}s)>"
+        return f"<HistoricalDelay(id={self.delay_id}, service={self.service_id}, delay={self.delay_minutes}m, source={self.data_source})>"
 
 
 class TransferStatistic(Base):
-    """Transfer times and probabilities between stops (Phase 2)."""
+    """Transfer delay statistics between services at interchange stops (Phase 2)."""
     
     __tablename__ = 'transfer_statistics'
 
     transfer_id = Column(Integer, primary_key=True, autoincrement=True)
-    from_stop_id = Column(Integer, ForeignKey('stops.stop_id'), nullable=False, index=True)
-    to_stop_id = Column(Integer, ForeignKey('stops.stop_id'), nullable=False, index=True)
-    avg_transfer_time = Column(Integer, nullable=False)  # seconds
-    min_transfer_time = Column(Integer, nullable=False)  # seconds
-    max_transfer_time = Column(Integer, nullable=False)  # seconds
+    stop_id = Column(Integer, ForeignKey('stops.stop_id'), nullable=False, index=True)
+    from_service_id = Column(Integer, ForeignKey('services.service_id'), nullable=False)
+    to_service_id = Column(Integer, ForeignKey('services.service_id'), nullable=False)
+    mean_delay = Column(Float, nullable=False)
+    delay_variance = Column(Float, nullable=False)
+    delay_std_dev = Column(Float, nullable=False)
     sample_count = Column(Integer, nullable=False)
+    success_rate = Column(Float, nullable=True)
+    last_computed = Column(DateTime, nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        Index('idx_transfer_unique', 'stop_id', 'from_service_id', 'to_service_id', unique=True),
+    )
 
     def __repr__(self):
-        return f"<TransferStatistic(id={self.transfer_id}, from={self.from_stop_id}, to={self.to_stop_id})>"
+        return f"<TransferStatistic(id={self.transfer_id}, stop={self.stop_id}, from_svc={self.from_service_id}, to_svc={self.to_service_id})>"
 
 
 class FragilityScore(Base):
@@ -145,6 +159,29 @@ class FragilityScore(Base):
         return f"<FragilityScore(id={self.score_id}, stop={self.stop_id}, edge={self.edge_id}, score={self.fragility_score})>"
 
 
+class ArrivalRecord(Base):
+    """Raw arrival predictions for delay calculation (Phase 2)."""
+    
+    __tablename__ = 'arrival_records'
+
+    record_id = Column(Integer, primary_key=True, autoincrement=True)
+    stop_id = Column(Integer, ForeignKey('stops.stop_id'), nullable=False, index=True)
+    service_id = Column(Integer, ForeignKey('services.service_id'), nullable=False, index=True)
+    vehicle_id = Column(String(50), nullable=True)
+    expected_arrival = Column(DateTime, nullable=False)
+    time_to_station = Column(Integer, nullable=False)
+    timestamp = Column(DateTime, nullable=False, index=True)
+    timetable_version = Column(String(50), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        Index('idx_stop_service_timestamp', 'stop_id', 'service_id', 'timestamp'),
+    )
+
+    def __repr__(self):
+        return f"<ArrivalRecord(id={self.record_id}, stop={self.stop_id}, service={self.service_id}, arrival={self.expected_arrival})>"
+
+
 class LiveDisruption(Base):
     """Real-time disruption data (Phase 2)."""
     
@@ -152,19 +189,23 @@ class LiveDisruption(Base):
 
     disruption_id = Column(Integer, primary_key=True, autoincrement=True)
     tfl_disruption_id = Column(String(100), unique=True, nullable=False, index=True)
-    service_id = Column(Integer, ForeignKey('services.service_id'), nullable=True, index=True)
-    stop_id = Column(Integer, ForeignKey('stops.stop_id'), nullable=True, index=True)
+    service_id = Column(Integer, ForeignKey('services.service_id'), nullable=False, index=True)
+    severity = Column(String(50), nullable=False, index=True)
     category = Column(String(50), nullable=False)
-    severity = Column(String(20), nullable=False)
     description = Column(Text, nullable=False)
-    start_time = Column(DateTime, nullable=False)
-    end_time = Column(DateTime, nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False, index=True)
+    affected_stops = Column(Text, nullable=True)
+    start_time = Column(DateTime, nullable=False, index=True)
+    expected_end_time = Column(DateTime, nullable=True)
+    actual_end_time = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
+    __table_args__ = (
+        Index('idx_service_start', 'service_id', 'start_time'),
+    )
+
     def __repr__(self):
-        return f"<LiveDisruption(id={self.disruption_id}, severity='{self.severity}', active={self.is_active})>"
+        return f"<LiveDisruption(id={self.disruption_id}, tfl_id='{self.tfl_disruption_id}', severity='{self.severity}', resolved={self.actual_end_time is not None})>"
 
 
 class User(Base):

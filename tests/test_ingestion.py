@@ -35,11 +35,12 @@ class TestIngestionPipeline:
     
     def test_ingest_stops_single_mode(self, pipeline):
         """Test ingesting stops for a single mode (DLR - smallest dataset)."""
+        from sqlalchemy import text
         with ConnectionBroker.get_session() as session:
             # Clear any existing DLR stops for clean test
-            session.execute("DELETE FROM edges WHERE service_id IN (SELECT service_id FROM services WHERE mode = 'dlr');")
-            session.execute("DELETE FROM services WHERE mode = 'dlr';")
-            session.execute("DELETE FROM stops WHERE mode = 'dlr';")
+            session.execute(text("DELETE FROM edges WHERE service_id IN (SELECT service_id FROM services WHERE mode = 'dlr');"))
+            session.execute(text("DELETE FROM services WHERE mode = 'dlr';"))
+            session.execute(text("DELETE FROM stops WHERE mode = 'dlr';"))
             session.commit()
             
             # Ingest DLR stops

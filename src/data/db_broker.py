@@ -2,8 +2,7 @@ from src.config.config_main import db_config
 
 import psycopg2
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session, declarative_base
 from contextlib import contextmanager
 
 # Base class for SQLAlchemy models
