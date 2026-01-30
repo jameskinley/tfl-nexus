@@ -13,12 +13,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from tqdm import tqdm
 
-from src.data.models import (
+from .models import (
     LiveDisruption, HistoricalDelay, Service, ArrivalRecord, Stop
 )
-from src.data.tfl.tfl_client import TflClient
-from src.data.db_broker import ConnectionBroker
-from src.config.config_main import tfl_config, phase2_config
+from .tfl.tfl_client import TflClient
+from .db_broker import ConnectionBroker
+from ..config.config_main import tfl_config, phase2_config
 
 logging.basicConfig(
     level=logging.INFO,

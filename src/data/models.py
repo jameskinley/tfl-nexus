@@ -12,7 +12,7 @@ from sqlalchemy.orm import relationship
 from geoalchemy2 import Geometry
 from datetime import datetime
 
-from src.data.db_broker import Base
+from .db_broker import Base
 
 
 class Stop(Base):
