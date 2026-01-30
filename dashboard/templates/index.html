@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TfL Nexus Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --tfl-blue: #0019a8;
+            --tfl-red: #dc241f;
+            --bg-primary: #f8f9fa;
+            --bg-secondary: #ffffff;
+            --text-primary: #1a202c;
+            --text-secondary: #4a5568;
+            --border-color: #e2e8f0;
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+            
+            --bakerloo: #B36305;
+            --central: #E32017;
+            --circle: #FFD300;
+            --district: #00782A;
+            --hammersmith-city: #F3A9BB;
+            --jubilee: #A0A5A9;
+            --metropolitan: #9B0056;
+            --northern: #000000;
+            --piccadilly: #003688;
+            --victoria: #0098D4;
+            --waterloo-city: #95CDBA;
+            --elizabeth: #7156A5;
+            --dlr: #00A4A7;
+            --overground: #EE7C0E;
+            --tram: #84B817;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1rem;
+        }
+
+        .header {
+            background: white;
+            padding: 1rem 1.5rem;
+            margin-bottom: 1.5rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            border-left: 4px solid var(--tfl-red);
+        }
+
+        .roundel {
+            width: 40px;
+            height: 40px;
+            background: var(--tfl-red);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .roundel::before {
+            content: '';
+            position: absolute;
+            width: 50px;
+            height: 14px;
+            background: var(--tfl-blue);
+            border-radius: 7px;
+        }
+
+        .roundel::after {
+            content: 'TfL';
+            position: relative;
+            color: white;
+            font-weight: 700;
+            font-size: 0.75rem;
+            z-index: 1;
+        }
+
+        .header-content h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 0.25rem;
+        }
+
+        .header-content p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .live-badge {
+            margin-left: auto;
+            padding: 0.5rem 1rem;
+            background: #d4edda;
+            color: #155724;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #28a745;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 1.25rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            border-top: 3px solid var(--tfl-blue);
+        }
+
+        .stat-card .icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--tfl-blue);
+        }
+
+        .stat-card .label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .mode-filter {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 0.5rem 1rem;
+            border: 2px solid var(--border-color);
+            background: white;
+            color: var(--text-primary);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .filter-btn:hover {
+            background: var(--bg-primary);
+        }
+
+        .filter-btn.active {
+            background: var(--tfl-blue);
+            color: white;
+            border-color: var(--tfl-blue);
+        }
+
+        .filter-btn .badge {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 0.1rem 0.4rem;
+            border-radius: 10px;
+            font-size: 0.75rem;
+        }
+
+        .filter-btn.active .badge {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 968px) {
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--bg-primary);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .refresh-btn {
+            background: var(--tfl-blue);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .refresh-btn:hover {
+            background: var(--tfl-red);
+        }
+
+        .refresh-btn.spinning i {
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .delay-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .delay-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .delay-list::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        .delay-list::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+
+        .delay-item {
+            background: var(--bg-primary);
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 0.75rem;
+            border-left: 4px solid var(--tfl-red);
+        }
+
+        .delay-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .line-name {
+            font-weight: 600;
+            font-size: 1rem;
+            margin-right: 0.5rem;
+        }
+
+        .line-badge {
+            display: inline-block;
+            padding: 0.3rem 0.7rem;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: white;
+            margin-right: 0.5rem;
+        }
+
+        .line-bakerloo { background: var(--bakerloo); }
+        .line-central { background: var(--central); }
+        .line-circle { background: var(--circle); color: #000; }
+        .line-district { background: var(--district); }
+        .line-hammersmith { background: var(--hammersmith-city); color: #000; }
+        .line-jubilee { background: var(--jubilee); }
+        .line-metropolitan { background: var(--metropolitan); }
+        .line-northern { background: var(--northern); }
+        .line-piccadilly { background: var(--piccadilly); }
+        .line-victoria { background: var(--victoria); }
+        .line-waterloo { background: var(--waterloo-city); color: #000; }
+        .line-elizabeth { background: var(--elizabeth); }
+        .line-lioness { background: var(--overground); }
+        .line-mildmay { background: var(--tfl-blue); }
+        .line-suffragette { background: #00A575; }
+
+        .mode-badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            border: 1px solid;
+        }
+
+        .mode-badge.tube { background: #fff5f5; color: var(--tfl-red); border-color: var(--tfl-red); }
+        .mode-badge.bus { background: #fff5f5; color: var(--tfl-red); border-color: var(--tfl-red); }
+        .mode-badge.dlr { background: #e6fffa; color: var(--dlr); border-color: var(--dlr); }
+        .mode-badge.overground { background: #fffaf0; color: var(--overground); border-color: var(--overground); }
+
+        .severity-badge {
+            padding: 0.4rem 0.8rem;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: var(--tfl-red);
+            color: white;
+        }
+
+        .description-box {
+            margin: 0.75rem 0;
+            padding: 0.75rem;
+            background: white;
+            border: 1px solid var(--border-color);
+            border-left: 3px solid var(--tfl-red);
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .delay-info {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .delay-info span {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            color: #28a745;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid var(--border-color);
+            border-top-color: var(--tfl-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+
+        .severity-item {
+            margin-bottom: 1.25rem;
+        }
+
+        .severity-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .severity-bar {
+            background: var(--bg-primary);
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .severity-bar-fill {
+            background: var(--tfl-blue);
+            height: 100%;
+            transition: width 0.5s ease;
+        }
+
+        .last-updated {
+            text-align: center;
+            padding: 1rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            background: white;
+            border-radius: 8px;
+            margin-top: 1.5rem;
+        }
+
+        .tube-train {
+            position: fixed;
+            bottom: 20px;
+            font-size: 2rem;
+            animation: trainMove 20s linear infinite;
+            z-index: 1000;
+        }
+
+        @keyframes trainMove {
+            0% { left: -100px; }
+            100% { left: calc(100% + 100px); }
+        }
+    </style>
+</head>
+<body>
+    <div class="tube-train">🚇</div>
+
+    <div class="container">
+        <div class="header">
+            <div class="roundel"></div>
+            <div class="header-content">
+                <h1>TfL Nexus Dashboard</h1>
+                <p>Real-time Transport Disruption Monitoring</p>
+            </div>
+            <div class="live-badge">
+                <div class="live-dot"></div>
+                Live
+            </div>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="icon">📊</div>
+                <div class="value" id="totalDelays">0</div>
+                <div class="label">Active Disruptions</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">⏱️</div>
+                <div class="value" id="avgDelay">0</div>
+                <div class="label">Avg Delay (min)</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">🚨</div>
+                <div class="value" id="severeCount">0</div>
+                <div class="label">Severe Issues</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">🚇</div>
+                <div class="value" id="affectedLines">0</div>
+                <div class="label">Affected Lines</div>
+            </div>
+        </div>
+
+        <div class="mode-filter">
+            <button class="filter-btn active" data-mode="all" onclick="filterByMode('all')">
+                <i class="fas fa-globe"></i> All Modes
+                <span class="badge" id="badge-all">0</span>
+            </button>
+            <button class="filter-btn" data-mode="tube" onclick="filterByMode('tube')">
+                🚇 Tube
+                <span class="badge" id="badge-tube">0</span>
+            </button>
+            <button class="filter-btn" data-mode="bus" onclick="filterByMode('bus')">
+                🚌 Bus
+                <span class="badge" id="badge-bus">0</span>
+            </button>
+            <button class="filter-btn" data-mode="dlr" onclick="filterByMode('dlr')">
+                🚊 DLR
+                <span class="badge" id="badge-dlr">0</span>
+            </button>
+            <button class="filter-btn" data-mode="overground" onclick="filterByMode('overground')">
+                🚈 Overground
+                <span class="badge" id="badge-overground">0</span>
+            </button>
+        </div>
+
+        <div class="content-grid">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <i class="fas fa-list"></i> Live Disruptions
+                    </h2>
+                    <button class="refresh-btn" onclick="refreshData()">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+                <div class="delay-list" id="delayList">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading disruptions...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">
+                        <i class="fas fa-chart-pie"></i> Severity Breakdown
+                    </h2>
+                </div>
+                <div id="severityBreakdown">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="last-updated" id="lastUpdated">
+            Last updated: Never
+        </div>
+    </div>
+
+    <script>
+        let refreshInterval;
+        let allDelays = [];
+        let currentFilter = 'all';
+
+        async function fetchData(endpoint) {
+            const response = await fetch('/api/' + endpoint);
+            return await response.json();
+        }
+
+        function getLineClass(lineName) {
+            const lineMap = {
+                'Bakerloo': 'line-bakerloo',
+                'Central': 'line-central',
+                'Circle': 'line-circle',
+                'District': 'line-district',
+                'Hammersmith & City': 'line-hammersmith',
+                'Jubilee': 'line-jubilee',
+                'Metropolitan': 'line-metropolitan',
+                'Northern': 'line-northern',
+                'Piccadilly': 'line-piccadilly',
+                'Victoria': 'line-victoria',
+                'Waterloo & City': 'line-waterloo',
+                'Elizabeth': 'line-elizabeth',
+                'Lioness Line': 'line-lioness',
+                'Mildmay Line': 'line-mildmay',
+                'Suffragette Line': 'line-suffragette'
+            };
+            return lineMap[lineName] || '';
+        }
+
+        function formatTimestamp(isoString) {
+            const date = new Date(isoString);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            
+            if (diffMins < 1) return 'Just now';
+            if (diffMins < 60) return diffMins + 'm ago';
+            return date.toLocaleTimeString();
+        }
+
+        function filterByMode(mode) {
+            currentFilter = mode;
+            
+            document.querySelectorAll('.filter-btn').forEach(function(btn) {
+                btn.classList.remove('active');
+            });
+            document.querySelector('[data-mode="' + mode + '"]').classList.add('active');
+            
+            const filtered = mode === 'all' 
+                ? allDelays 
+                : allDelays.filter(function(d) { 
+                    return d.mode.toLowerCase().replace(/\s+/g, '-') === mode; 
+                });
+            
+            renderDelays(filtered);
+        }
+
+        function updateFilterBadges(delays) {
+            const counts = {
+                all: delays.length,
+                tube: delays.filter(function(d) { return d.mode.toLowerCase() === 'tube'; }).length,
+                bus: delays.filter(function(d) { return d.mode.toLowerCase() === 'bus'; }).length,
+                dlr: delays.filter(function(d) { return d.mode.toLowerCase() === 'dlr'; }).length,
+                overground: delays.filter(function(d) { return d.mode.toLowerCase() === 'overground'; }).length
+            };
+            
+            Object.keys(counts).forEach(function(mode) {
+                const badge = document.getElementById('badge-' + mode);
+                if (badge) badge.textContent = counts[mode];
+            });
+        }
+
+        function renderDelays(delays) {
+            const delayList = document.getElementById('delayList');
+            
+            if (delays.length === 0) {
+                delayList.innerHTML = '<div class="empty-state"><i class="fas fa-check-circle"></i><h3>No Disruptions</h3><p>' + 
+                    (currentFilter === 'all' ? 'All services running smoothly!' : 'No disruptions for this mode!') + 
+                    '</p></div>';
+                return;
+            }
+
+            delayList.innerHTML = delays.map(function(delay) {
+                const lineClass = getLineClass(delay.line_name);
+                const modeClass = delay.mode.toLowerCase().replace(/\s+/g, '-');
+                
+                let html = '<div class="delay-item">';
+                html += '<div class="delay-header">';
+                html += '<div>';
+                html += '<span class="line-name">' + delay.line_name + '</span>';
+                
+                if (lineClass) {
+                    html += '<span class="line-badge ' + lineClass + '">' + delay.line_name + '</span>';
+                }
+                
+                html += '<span class="mode-badge ' + modeClass + '">' + delay.mode + '</span>';
+                html += '</div>';
+                html += '<div class="severity-badge">' + delay.severity + '</div>';
+                html += '</div>';
+                
+                if (delay.description) {
+                    html += '<div class="description-box">';
+                    html += '<i class="fas fa-info-circle"></i> ' + delay.description;
+                    html += '</div>';
+                }
+                
+                html += '<div class="delay-info">';
+                html += '<span><i class="fas fa-clock"></i> ' + formatTimestamp(delay.timestamp) + '</span>';
+                html += '<span><i class="fas fa-database"></i> ' + delay.data_source + '</span>';
+                if (delay.category) {
+                    html += '<span><i class="fas fa-tag"></i> ' + delay.category + '</span>';
+                }
+                html += '</div>';
+                html += '</div>';
+                
+                return html;
+            }).join('');
+        }
+
+        function updateStats(summaryData) {
+            const totalDelays = summaryData.reduce(function(sum, item) { return sum + item.delay_count; }, 0);
+            const totalAvgDelay = summaryData.length > 0 
+                ? summaryData.reduce(function(sum, item) { return sum + item.avg_delay; }, 0) / summaryData.length 
+                : 0;
+            
+            document.getElementById('totalDelays').textContent = totalDelays;
+            document.getElementById('avgDelay').textContent = totalAvgDelay.toFixed(1);
+            document.getElementById('affectedLines').textContent = summaryData.length;
+        }
+
+        function renderSeverityBreakdown(breakdown) {
+            const container = document.getElementById('severityBreakdown');
+            
+            if (breakdown.length === 0) {
+                container.innerHTML = '<div class="empty-state"><i class="fas fa-smile"></i><p>No severity data</p></div>';
+                return;
+            }
+
+            const total = breakdown.reduce(function(sum, item) { return sum + item.count; }, 0);
+            
+            container.innerHTML = breakdown.map(function(item) {
+                const percentage = ((item.count / total) * 100).toFixed(1);
+                
+                let html = '<div class="severity-item">';
+                html += '<div class="severity-header">';
+                html += '<span><strong>' + item.severity + '</strong></span>';
+                html += '<span>' + item.count + ' (' + percentage + '%)</span>';
+                html += '</div>';
+                html += '<div class="severity-bar">';
+                html += '<div class="severity-bar-fill" style="width: ' + percentage + '%"></div>';
+                html += '</div>';
+                html += '<div style="margin-top: 0.25rem; font-size: 0.8rem; color: var(--text-secondary);">';
+                html += 'Avg: ' + item.avg_delay.toFixed(1) + ' min';
+                html += '</div>';
+                html += '</div>';
+                
+                return html;
+            }).join('');
+        }
+
+        async function refreshData() {
+            const btn = document.querySelector('.refresh-btn');
+            btn.classList.add('spinning');
+
+            try {
+                const currentData = await fetchData('delays/current');
+                const summaryData = await fetchData('delays/summary');
+                const severityData = await fetchData('delays/severity-breakdown');
+
+                if (currentData.success) {
+                    allDelays = currentData.delays;
+                    updateFilterBadges(allDelays);
+                    filterByMode(currentFilter);
+                }
+
+                if (summaryData.success) {
+                    updateStats(summaryData.summary);
+                }
+
+                if (severityData.success) {
+                    renderSeverityBreakdown(severityData.breakdown);
+                    
+                    const severeData = severityData.breakdown.find(function(b) {
+                        return b.severity.toLowerCase().includes('severe') || b.severity.toLowerCase().includes('suspended');
+                    });
+                    document.getElementById('severeCount').textContent = severeData ? severeData.count : 0;
+                }
+
+                document.getElementById('lastUpdated').textContent = 'Last updated: ' + new Date().toLocaleTimeString();
+
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('delayList').innerHTML = 
+                    '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><h3>Error</h3><p>' + 
+                    error.message + '</p></div>';
+            } finally {
+                setTimeout(function() { btn.classList.remove('spinning'); }, 500);
+            }
+        }
+
+        refreshData();
+        refreshInterval = setInterval(refreshData, 30000);
+    </script>
+</body>
+</html>

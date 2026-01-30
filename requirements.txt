@@ -1,0 +1,19 @@
+# TfL Nexus Python Dependencies
+
+# Database
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.0
+geoalchemy2>=0.14.0
+
+# API Client
+requests>=2.31.0
+
+# Configuration
+python-dotenv>=1.0.0
+
+# CLI & Progress
+tqdm>=4.66.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0

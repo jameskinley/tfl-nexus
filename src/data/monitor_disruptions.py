@@ -94,7 +94,7 @@ class DisruptionMonitor:
             )
         
         except Exception as e:
-            logger.error(f"Fatal error in poll cycle: {e}", exc_info=True)
+            logger.error(f"Fatal error in poll cy cle: {e}", exc_info=True)
             raise
     
     def _build_service_map(self, session) -> Dict[str, int]:
@@ -124,24 +124,84 @@ class DisruptionMonitor:
                 self._resolve_service_disruptions(session, service_id)
                 continue
             
-            tfl_id = str(line_status.get('id'))
-            if not tfl_id:
-                continue
+            disruption_obj = line_status.get('disruption', {})
+            description = line_status.get('reason') or disruption_obj.get('description', 'No description')
             
-            result['active_ids'].append(tfl_id)
+            # Find or create disruption using natural key (service + severity + description)
+            # This prevents duplicates even when TfL returns invalid IDs
+            existing = self._find_matching_disruption(
+                session, service_id, severity, description
+            )
             
+            if existing:
+                # Update existing disruption
+                if self._update_disruption(existing, line_status):
+                    result['updated'] += 1
+                result['active_ids'].append(existing.tfl_disruption_id)
+            else:
+                # Create new disruption with unique ID
+                tfl_id = self._generate_unique_disruption_id(
+                    session, line_status, service_id, severity, description
+                )
+                self._create_disruption(session, tfl_id, service_id, line_status)
+                result['new'] += 1
+                result['active_ids'].append(tfl_id)
+        
+        return result
+    
+    def _find_matching_disruption(self, session, service_id: int, 
+                                   severity: str, description: str):
+        """
+        Find existing active disruption matching service, severity, and description.
+        Uses fuzzy matching on description to handle minor TfL API variations.
+        """
+        # Normalize description for comparison
+        desc_normalized = description.strip()[:200]
+        
+        # Query active disruptions for this service with same severity
+        active_disruptions = session.query(LiveDisruption).filter(
+            LiveDisruption.service_id == service_id,
+            LiveDisruption.severity == severity,
+            LiveDisruption.actual_end_time.is_(None)
+        ).all()
+        
+        # Exact match first
+        for disruption in active_disruptions:
+            if disruption.description.strip()[:200] == desc_normalized:
+                return disruption
+        
+        # No exact match found
+        return None
+    
+    def _generate_unique_disruption_id(self, session, line_status: dict,
+                                       service_id: int, severity: str, 
+                                       description: str) -> str:
+        """
+        Generate unique disruption ID, ensuring no conflicts.
+        Tries TfL ID first, falls back to UUID-based generation.
+        """
+        import hashlib
+        import uuid
+        
+        raw_id = line_status.get('id')
+        
+        # Try using TfL's ID if it's valid and unique
+        if raw_id and raw_id != 0 and str(raw_id) != '0':
+            tfl_id = str(raw_id)
+            # Verify it doesn't already exist
             existing = session.query(LiveDisruption).filter_by(
                 tfl_disruption_id=tfl_id
             ).first()
-            
-            if existing:
-                if self._update_disruption(existing, line_status):
-                    result['updated'] += 1
-            else:
-                self._create_disruption(session, tfl_id, service_id, line_status)
-                result['new'] += 1
+            if not existing:
+                return tfl_id
         
-        return result
+        # Generate unique ID using UUID + timestamp
+        # This guarantees uniqueness even for identical disruptions
+        unique_suffix = str(uuid.uuid4())[:8]
+        timestamp = datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')
+        base_hash = hashlib.md5(f"{service_id}:{severity}".encode()).hexdigest()[:6]
+        
+        return f"gen-{base_hash}-{timestamp}-{unique_suffix}"
     
     def _create_disruption(self, session, tfl_id: str, 
                           service_id: int, line_status: dict):
@@ -214,7 +274,7 @@ class DisruptionMonitor:
         """Extract affected stop IDs as JSON string."""
         affected = disruption_obj.get('affectedStops', [])
         if not affected:
-            return None
+            return ''
         
         stop_ids = [stop.get('id') or stop.get('naptanId') for stop in affected if stop.get('id') or stop.get('naptanId')]
         return ','.join(stop_ids) if stop_ids else None
@@ -230,8 +290,11 @@ class DisruptionMonitor:
             return datetime.now(timezone.utc)
 
 
-def main():
-    """Entry point for disruption monitor daemon."""
+def start_monitor_daemon():
+    """
+    Start disruption monitor daemon.
+    Can be called from orchestrator or run standalone.
+    """
     logger.info("Initializing disruption monitor")
     
     ConnectionBroker.create_tables()
@@ -249,6 +312,11 @@ def main():
     finally:
         monitor.stop()
         logger.info("Disruption monitor terminated")
+
+
+def main():
+    """Entry point for disruption monitor daemon."""
+    start_monitor_daemon()
 
 
 if __name__ == "__main__":

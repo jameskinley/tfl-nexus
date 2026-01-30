@@ -3,11 +3,11 @@ Test data ingestion pipeline.
 """
 
 import pytest
-from src.data.ingest_pipeline import DataIngestionPipeline
+from src.ingest.static_network import ingest_stops, ingest_services, ingest_edges
 from src.data.tfl.tfl_client import TflClient
 from src.config.config_main import tfl_config
 from src.data.db_broker import ConnectionBroker
-from src.data.models import Stop, Service, Edge
+from src.ingest.schema import Stop, Service, Edge, initialize_database
 from sqlalchemy import func
 
 
@@ -15,25 +15,22 @@ class TestIngestionPipeline:
     """Test the data ingestion pipeline."""
     
     @pytest.fixture(scope="class")
-    def pipeline(self):
-        """Create pipeline instance."""
-        client = TflClient(tfl_config)
-        return DataIngestionPipeline(client)
+    def tfl_client(self):
+        """Create TfL client instance."""
+        return TflClient(tfl_config)
     
     @pytest.fixture(scope="class", autouse=True)
     def setup_database(self):
         """Ensure tables exist."""
-        ConnectionBroker.create_tables()
+        engine = ConnectionBroker.get_engine()
+        initialize_database(engine, drop_existing=False)
         yield
     
-    def test_pipeline_initialization(self, pipeline):
-        """Test that pipeline initializes correctly."""
-        assert pipeline is not None
-        assert pipeline.tfl_client is not None
-        assert isinstance(pipeline.stop_mapping, dict)
-        assert isinstance(pipeline.service_mapping, dict)
+    def test_client_initialization(self, tfl_client):
+        """Test that TfL client initializes correctly."""
+        assert tfl_client is not None
     
-    def test_ingest_stops_single_mode(self, pipeline):
+    def test_ingest_stops_single_mode(self, tfl_client):
         """Test ingesting stops for a single mode (DLR - smallest dataset)."""
         from sqlalchemy import text
         with ConnectionBroker.get_session() as session:
@@ -44,7 +41,7 @@ class TestIngestionPipeline:
             session.commit()
             
             # Ingest DLR stops
-            stop_mapping = pipeline.ingest_stops(session, ['dlr'])
+            stop_mapping = ingest_stops(session, tfl_client, ['dlr'])
             
             # Verify some stops were ingested
             assert len(stop_mapping) > 0

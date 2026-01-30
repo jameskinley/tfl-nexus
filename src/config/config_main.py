@@ -20,6 +20,12 @@ class TflConfig():
 
 tfl_config = TflConfig()
 
+class IngestionConfig():
+    """Configuration for data ingestion process."""
+    modes: list = os.getenv("INGESTION_MODES", "tube,dlr,elizabeth-line,overground,tram").split(",")
+
+ingestion_config = IngestionConfig()
+
 class Phase2Config():
     disruption_poll_interval: int = int(os.getenv("DISRUPTION_POLL_INTERVAL", "120"))
     arrival_poll_interval: int = int(os.getenv("ARRIVAL_POLL_INTERVAL", "60"))

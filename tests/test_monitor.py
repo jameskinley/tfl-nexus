@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 from sqlalchemy import text
 from src.data.monitor_disruptions import DisruptionMonitor
-from src.data.models import LiveDisruption, Service
+from src.ingest.schema import LiveDisruption, Service, initialize_database
 from src.data.db_broker import ConnectionBroker
 
 
@@ -17,7 +17,8 @@ class TestDisruptionMonitor:
     @pytest.fixture(scope="class", autouse=True)
     def setup_database(self):
         """Ensure tables exist."""
-        ConnectionBroker.create_tables()
+        engine = ConnectionBroker.get_engine()
+        initialize_database(engine, drop_existing=False)
         yield
     
     @pytest.fixture(autouse=True)

@@ -5,7 +5,7 @@ Test database setup and models for Phase 1.
 import pytest
 from sqlalchemy import text
 from src.data.db_broker import ConnectionBroker
-from src.data.models import Stop, Service, Edge
+from src.ingest.schema import Stop, Service, Edge, initialize_database
 
 
 class TestDatabaseConnection:
@@ -32,7 +32,8 @@ class TestTableStructure:
     @pytest.fixture(scope="class", autouse=True)
     def setup_tables(self):
         """Create tables before running tests."""
-        ConnectionBroker.create_tables()
+        engine = ConnectionBroker.get_engine()
+        initialize_database(engine, drop_existing=False)
         yield
     
     def test_stops_table_exists(self):

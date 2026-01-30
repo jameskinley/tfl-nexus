@@ -5,8 +5,8 @@ Tests for Phase 2 transfer statistics computation.
 import pytest
 from datetime import datetime, timedelta, timezone
 from sqlalchemy import text
-from src.data.compute_statistics import TransferStatisticsComputer
-from src.data.models import TransferStatistic, HistoricalDelay, Service, Stop, Edge
+from src.ingest.temporal_data import compute_transfer_statistics
+from src.ingest.schema import TransferStatistic, HistoricalDelay, Service, Stop, Edge, initialize_database
 from src.data.db_broker import ConnectionBroker
 
 
@@ -16,7 +16,8 @@ class TestTransferStatisticsComputer:
     @pytest.fixture(scope="class", autouse=True)
     def setup_database(self):
         """Ensure tables exist."""
-        ConnectionBroker.create_tables()
+        engine = ConnectionBroker.get_engine()
+        initialize_database(engine, drop_existing=False)
         yield
     
     @pytest.fixture(autouse=True)

@@ -6,8 +6,8 @@ import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock
 from sqlalchemy import text
-from src.data.ingest_historical import DisruptionDelayDeriver, ArrivalCollector
-from src.data.models import LiveDisruption, HistoricalDelay, Service, Stop
+from src.ingest.temporal_data import derive_delays_from_disruptions, collect_arrival_predictions
+from src.ingest.schema import LiveDisruption, HistoricalDelay, Service, Stop, initialize_database
 from src.data.db_broker import ConnectionBroker
 
 
@@ -17,7 +17,8 @@ class TestDisruptionDelayDeriver:
     @pytest.fixture(scope="class", autouse=True)
     def setup_database(self):
         """Ensure tables exist."""
-        ConnectionBroker.create_tables()
+        engine = ConnectionBroker.get_engine()
+        initialize_database(engine, drop_existing=False)
         yield    
     @pytest.fixture(autouse=True)
     def cleanup_data(self):
