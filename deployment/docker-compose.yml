@@ -11,3 +11,20 @@ services:
     volumes:
       - ./data/postgis:/var/lib/postgresql/data
       - ./pg_hba.conf:/var/lib/postgresql/data/pg_hba.conf
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sa -d tflnexus"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  disruption-monitor:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.monitor
+    restart: unless-stopped
+    depends_on:
+      postgis:
+        condition: service_healthy
+    env_file: ".env-docker"
+    volumes:
+      - ../logs:/app/logs

@@ -1,19 +1,30 @@
 """
-SQLAlchemy models for TfL Nexus database.
+Database Schema Module
 
-Phase 1: Stop, Service, Edge models (fully implemented)
-Future phases: Historical delays, fragility scores, etc. (schema only)
+Consolidates all SQLAlchemy models and provides atomic database initialization.
+Eliminates incremental migration scripts in favor of drop+recreate approach.
+
+Phase Coverage:
+    - Phase 1: Stop, Service, Edge (static network topology)
+    - Phase 2: HistoricalDelay, TransferStatistic, LiveDisruption, ArrivalRecord
+    - Phase 3: FragilityScore
+    - Phase 4: User, SavedRoute
 """
 
 from sqlalchemy import (
     Column, Integer, String, Float, DateTime, ForeignKey, Text, Boolean, Index
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, declarative_base
 from geoalchemy2 import Geometry
 from datetime import datetime
 
-from .db_broker import Base
+# Base class for all models
+Base = declarative_base()
 
+
+# ============================================================================
+# PHASE 1: STATIC NETWORK TOPOLOGY
+# ============================================================================
 
 class Stop(Base):
     """Transport stops across all modes (tube, bus, DLR, etc.)."""
@@ -85,11 +96,11 @@ class Edge(Base):
 
 
 # ============================================================================
-# FUTURE PHASE MODELS (Schema only - DO NOT populate in Phase 1)
+# PHASE 2: TEMPORAL DATA INTEGRATION
 # ============================================================================
 
 class HistoricalDelay(Base):
-    """Historical delay records for transit services (Phase 2)."""
+    """Historical delay records for transit services."""
     
     __tablename__ = 'historical_delays'
 
@@ -117,7 +128,7 @@ class HistoricalDelay(Base):
 
 
 class TransferStatistic(Base):
-    """Transfer delay statistics between services at interchange stops (Phase 2)."""
+    """Transfer delay statistics between services at interchange stops."""
     
     __tablename__ = 'transfer_statistics'
 
@@ -141,49 +152,8 @@ class TransferStatistic(Base):
         return f"<TransferStatistic(id={self.transfer_id}, stop={self.stop_id}, from_svc={self.from_service_id}, to_svc={self.to_service_id})>"
 
 
-class FragilityScore(Base):
-    """Network fragility metrics for stops and edges (Phase 3)."""
-    
-    __tablename__ = 'fragility_scores'
-
-    score_id = Column(Integer, primary_key=True, autoincrement=True)
-    stop_id = Column(Integer, ForeignKey('stops.stop_id'), nullable=True, index=True)
-    edge_id = Column(Integer, ForeignKey('edges.edge_id'), nullable=True, index=True)
-    fragility_score = Column(Float, nullable=False)
-    centrality_score = Column(Float, nullable=True)
-    betweenness_score = Column(Float, nullable=True)
-    impact_radius = Column(Integer, nullable=True)  # meters
-    calculated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-
-    def __repr__(self):
-        return f"<FragilityScore(id={self.score_id}, stop={self.stop_id}, edge={self.edge_id}, score={self.fragility_score})>"
-
-
-class ArrivalRecord(Base):
-    """Raw arrival predictions for delay calculation (Phase 2)."""
-    
-    __tablename__ = 'arrival_records'
-
-    record_id = Column(Integer, primary_key=True, autoincrement=True)
-    stop_id = Column(Integer, ForeignKey('stops.stop_id'), nullable=False, index=True)
-    service_id = Column(Integer, ForeignKey('services.service_id'), nullable=False, index=True)
-    vehicle_id = Column(String(50), nullable=True)
-    expected_arrival = Column(DateTime, nullable=False)
-    time_to_station = Column(Integer, nullable=False)
-    timestamp = Column(DateTime, nullable=False, index=True)
-    timetable_version = Column(String(50), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-
-    __table_args__ = (
-        Index('idx_stop_service_timestamp', 'stop_id', 'service_id', 'timestamp'),
-    )
-
-    def __repr__(self):
-        return f"<ArrivalRecord(id={self.record_id}, stop={self.stop_id}, service={self.service_id}, arrival={self.expected_arrival})>"
-
-
 class LiveDisruption(Base):
-    """Real-time disruption data (Phase 2)."""
+    """Real-time disruption data."""
     
     __tablename__ = 'live_disruptions'
 
@@ -208,8 +178,57 @@ class LiveDisruption(Base):
         return f"<LiveDisruption(id={self.disruption_id}, tfl_id='{self.tfl_disruption_id}', severity='{self.severity}', resolved={self.actual_end_time is not None})>"
 
 
+class ArrivalRecord(Base):
+    """Raw arrival predictions for delay calculation."""
+    
+    __tablename__ = 'arrival_records'
+
+    record_id = Column(Integer, primary_key=True, autoincrement=True)
+    stop_id = Column(Integer, ForeignKey('stops.stop_id'), nullable=False, index=True)
+    service_id = Column(Integer, ForeignKey('services.service_id'), nullable=False, index=True)
+    vehicle_id = Column(String(50), nullable=True)
+    expected_arrival = Column(DateTime, nullable=False)
+    time_to_station = Column(Integer, nullable=False)
+    timestamp = Column(DateTime, nullable=False, index=True)
+    timetable_version = Column(String(50), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    __table_args__ = (
+        Index('idx_stop_service_timestamp', 'stop_id', 'service_id', 'timestamp'),
+    )
+
+    def __repr__(self):
+        return f"<ArrivalRecord(id={self.record_id}, stop={self.stop_id}, service={self.service_id}, arrival={self.expected_arrival})>"
+
+
+# ============================================================================
+# PHASE 3: NETWORK FRAGILITY ANALYSIS
+# ============================================================================
+
+class FragilityScore(Base):
+    """Network fragility metrics for stops and edges."""
+    
+    __tablename__ = 'fragility_scores'
+
+    score_id = Column(Integer, primary_key=True, autoincrement=True)
+    stop_id = Column(Integer, ForeignKey('stops.stop_id'), nullable=True, index=True)
+    edge_id = Column(Integer, ForeignKey('edges.edge_id'), nullable=True, index=True)
+    fragility_score = Column(Float, nullable=False)
+    centrality_score = Column(Float, nullable=True)
+    betweenness_score = Column(Float, nullable=True)
+    impact_radius = Column(Integer, nullable=True)  # meters
+    calculated_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f"<FragilityScore(id={self.score_id}, stop={self.stop_id}, edge={self.edge_id}, score={self.fragility_score})>"
+
+
+# ============================================================================
+# PHASE 4: USER FEATURES
+# ============================================================================
+
 class User(Base):
-    """User accounts for route planning (Phase 4)."""
+    """User accounts for route planning."""
     
     __tablename__ = 'users'
 
@@ -228,7 +247,7 @@ class User(Base):
 
 
 class SavedRoute(Base):
-    """User-saved routes (Phase 4)."""
+    """User-saved routes."""
     
     __tablename__ = 'saved_routes'
 
@@ -246,3 +265,39 @@ class SavedRoute(Base):
 
     def __repr__(self):
         return f"<SavedRoute(id={self.route_id}, user={self.user_id}, name='{self.route_name}')>"
+
+
+# ============================================================================
+# DATABASE INITIALIZATION
+# ============================================================================
+
+def initialize_database(engine, drop_existing=False):
+    """
+    Initialize database schema atomically.
+    
+    Args:
+        engine: SQLAlchemy engine instance
+        drop_existing: If True, drops all existing tables before creation
+        
+    Returns:
+        None
+        
+    Note:
+        This function replaces all incremental migration scripts.
+        Use drop_existing=True for fresh setup or schema changes.
+    """
+    if drop_existing:
+        print("⚠️  Dropping all existing tables...")
+        Base.metadata.drop_all(bind=engine)
+        print("✓ Tables dropped")
+    
+    print("Creating database schema...")
+    Base.metadata.create_all(bind=engine)
+    print("✓ Database schema initialized")
+    
+    # Verify PostGIS extension (required for Stop.location)
+    from sqlalchemy import text
+    with engine.connect() as conn:
+        result = conn.execute(text("SELECT PostGIS_version();"))
+        version = result.scalar()
+        print(f"✓ PostGIS extension verified: {version}")
