@@ -42,23 +42,31 @@ def get_current_delays():
     """Get current live disruptions"""
     session = SessionLocal()
     try:
-        # Get active disruptions (not yet resolved)
         query = text("""
             SELECT 
                 s.line_name,
                 s.mode,
-                ld.severity,
-                ld.description,
-                ld.category,
-                ld.start_time,
-                ld.expected_end_time,
+                ld.severity_level,
+                ld.category_description,
+                ld.disruption_type,
+                ld.summary,
+                ld.additional_info,
+                ld.is_full_suspension,
+                ld.is_partial_suspension,
+                ld.affected_section_start_naptan,
+                ld.affected_section_end_naptan,
+                ld.created,
+                ld.last_update,
+                ld.valid_from,
+                ld.valid_to,
                 ld.tfl_disruption_id,
-                ld.created_at,
-                ld.updated_at
+                sl.estimated_delay_minutes,
+                sl.confidence_score
             FROM live_disruptions ld
             JOIN services s ON ld.service_id = s.service_id
-            WHERE ld.actual_end_time IS NULL
-            ORDER BY ld.start_time DESC
+            LEFT JOIN severity_levels sl ON ld.severity_level = sl.severity_level AND s.mode = sl.mode_name
+            WHERE ld.valid_to IS NULL OR ld.valid_to > NOW()
+            ORDER BY ld.created DESC
             LIMIT 100
         """)
         
@@ -66,28 +74,45 @@ def get_current_delays():
         
         delays = []
         for row in result:
-            # Calculate approximate delay in minutes from severity
-            severity_map = {
-                'Suspended': 60,
-                'Part Suspended': 45,
-                'Severe Delays': 30,
-                'Reduced Service': 20,
-                'Part Closure': 25,
-                'Minor Delays': 10,
-                'Good Service': 0
-            }
-            delay_minutes = severity_map.get(row.severity, 15)
+            severity_labels = [
+                'Good Service', 'Minor Delays', 'Minor Delays', 'Moderate Delays',
+                'Moderate Delays', 'Severe Delays', 'Severe Delays', 'Part Suspended',
+                'Part Suspended', 'Suspended', 'Suspended'
+            ]
+            severity_text = severity_labels[min(row.severity_level, 10)] if row.severity_level is not None else 'Unknown'
+            
+            if row.is_full_suspension:
+                severity_text = 'Suspended'
+            elif row.is_partial_suspension:
+                severity_text = 'Part Suspended'
+            
+            delay_minutes = row.estimated_delay_minutes if row.estimated_delay_minutes else row.severity_level * 2.5
+            
+            section_info = None
+            if row.affected_section_start_naptan or row.affected_section_end_naptan:
+                section_info = {
+                    'start': row.affected_section_start_naptan,
+                    'end': row.affected_section_end_naptan
+                }
             
             delays.append({
                 'line_name': row.line_name,
                 'mode': row.mode,
-                'delay_minutes': delay_minutes,
-                'severity': row.severity,
-                'description': row.description,
-                'category': row.category,
-                'timestamp': row.start_time.isoformat() if row.start_time else None,
-                'data_source': 'TfL Live',
-                'confidence_level': 'high',
+                'delay_minutes': round(delay_minutes, 1),
+                'severity': severity_text,
+                'severity_level': row.severity_level,
+                'description': row.summary or row.category_description,
+                'additional_info': row.additional_info,
+                'category': row.category_description,
+                'disruption_type': row.disruption_type,
+                'is_full_suspension': row.is_full_suspension,
+                'is_partial_suspension': row.is_partial_suspension,
+                'affected_section': section_info,
+                'timestamp': row.created.isoformat() if row.created else None,
+                'last_update': row.last_update.isoformat() if row.last_update else None,
+                'data_source': 'TfL Disruption API',
+                'confidence_level': 'high' if row.confidence_score and row.confidence_score > 0.75 else 'medium',
+                'confidence_score': round(row.confidence_score, 2) if row.confidence_score else 0.3,
                 'tfl_disruption_id': row.tfl_disruption_id
             })
         
@@ -113,44 +138,35 @@ def get_delay_summary():
     """Get summary statistics of active disruptions"""
     session = SessionLocal()
     try:
-        # Get summary by line for active disruptions
         query = text("""
             SELECT 
                 s.line_name,
                 s.mode,
                 COUNT(*) as delay_count,
-                ld.severity,
-                MAX(ld.start_time) as latest_update
+                AVG(COALESCE(sl.estimated_delay_minutes, ld.severity_level * 2.5)) as avg_delay,
+                MAX(COALESCE(sl.estimated_delay_minutes, ld.severity_level * 2.5)) as max_delay,
+                MAX(ld.last_update) as latest_update,
+                AVG(sl.confidence_score) as avg_confidence
             FROM live_disruptions ld
             JOIN services s ON ld.service_id = s.service_id
-            WHERE ld.actual_end_time IS NULL
-            GROUP BY s.line_name, s.mode, ld.severity
+            LEFT JOIN severity_levels sl ON ld.severity_level = sl.severity_level AND s.mode = sl.mode_name
+            WHERE ld.valid_to IS NULL OR ld.valid_to > NOW()
+            GROUP BY s.line_name, s.mode
             ORDER BY delay_count DESC
         """)
         
         result = session.execute(query)
         
-        # Map severity to approximate delay minutes
-        severity_map = {
-            'Suspended': 60,
-            'Part Suspended': 45,
-            'Severe Delays': 30,
-            'Reduced Service': 20,
-            'Part Closure': 25,
-            'Minor Delays': 10,
-            'Good Service': 0
-        }
-        
         summary = []
         for row in result:
-            avg_delay = severity_map.get(row.severity, 15)
             summary.append({
                 'line_name': row.line_name,
                 'mode': row.mode,
                 'delay_count': row.delay_count,
-                'avg_delay': avg_delay,
-                'max_delay': avg_delay,
-                'latest_update': row.latest_update.isoformat() if row.latest_update else None
+                'avg_delay': round(row.avg_delay, 1) if row.avg_delay else 0,
+                'max_delay': round(row.max_delay, 1) if row.max_delay else 0,
+                'latest_update': row.latest_update.isoformat() if row.latest_update else None,
+                'confidence': round(row.avg_confidence, 2) if row.avg_confidence else 0.3
             })
         
         return jsonify({
@@ -176,34 +192,38 @@ def get_severity_breakdown():
     try:
         query = text("""
             SELECT 
-                severity,
-                COUNT(*) as count
-            FROM live_disruptions
-            WHERE actual_end_time IS NULL
-            GROUP BY severity
+                CASE
+                    WHEN ld.is_full_suspension THEN 'Suspended'
+                    WHEN ld.is_partial_suspension THEN 'Part Suspended'
+                    WHEN ld.severity_level >= 8 THEN 'Part Suspended'
+                    WHEN ld.severity_level >= 5 THEN 'Severe Delays'
+                    WHEN ld.severity_level >= 3 THEN 'Moderate Delays'
+                    WHEN ld.severity_level >= 1 THEN 'Minor Delays'
+                    ELSE 'Good Service'
+                END as severity,
+                COUNT(*) as count,
+                AVG(COALESCE(sl.estimated_delay_minutes, ld.severity_level * 2.5)) as avg_delay,
+                AVG(sl.confidence_score) as avg_confidence
+            FROM live_disruptions ld
+            JOIN services s ON ld.service_id = s.service_id
+            LEFT JOIN severity_levels sl ON ld.severity_level = sl.severity_level AND s.mode = sl.mode_name
+            WHERE ld.valid_to IS NULL OR ld.valid_to > NOW()
+            GROUP BY 
+                ld.is_full_suspension,
+                ld.is_partial_suspension,
+                ld.severity_level
             ORDER BY count DESC
         """)
         
         result = session.execute(query)
         
-        # Map severity to approximate delay minutes
-        severity_map = {
-            'Suspended': 60,
-            'Part Suspended': 45,
-            'Severe Delays': 30,
-            'Reduced Service': 20,
-            'Part Closure': 25,
-            'Minor Delays': 10,
-            'Good Service': 0
-        }
-        
         breakdown = []
         for row in result:
-            avg_delay = severity_map.get(row.severity, 15)
             breakdown.append({
                 'severity': row.severity,
                 'count': row.count,
-                'avg_delay': avg_delay
+                'avg_delay': round(row.avg_delay, 1) if row.avg_delay else 0,
+                'confidence': round(row.avg_confidence, 2) if row.avg_confidence else 0.3
             })
         
         return jsonify({
@@ -221,27 +241,76 @@ def get_severity_breakdown():
         session.close()
 
 
+@app.route('/api/phase2b/stats')
+def get_phase2b_stats():
+    """Get Phase 2B-specific statistics"""
+    session = SessionLocal()
+    try:
+        query = text("""
+            SELECT 
+                COUNT(*) FILTER (WHERE is_full_suspension) as full_suspensions,
+                COUNT(*) FILTER (WHERE is_partial_suspension) as partial_suspensions,
+                COUNT(*) FILTER (WHERE affected_section_start_naptan IS NOT NULL) as with_section_info,
+                AVG(sl.confidence_score) as avg_confidence,
+                COUNT(DISTINCT sl.severity_level) as severity_levels_in_use,
+                (SELECT COUNT(*) FROM severity_levels WHERE confidence_score > 0.75) as high_confidence_levels,
+                (SELECT COUNT(*) FROM realtime_delay_samples) as total_samples
+            FROM live_disruptions ld
+            JOIN services s ON ld.service_id = s.service_id
+            LEFT JOIN severity_levels sl ON ld.severity_level = sl.severity_level AND s.mode = sl.mode_name
+            WHERE ld.valid_to IS NULL OR ld.valid_to > NOW()
+        """)
+        
+        result = session.execute(query).fetchone()
+        
+        return jsonify({
+            'success': True,
+            'stats': {
+                'full_suspensions': result.full_suspensions or 0,
+                'partial_suspensions': result.partial_suspensions or 0,
+                'with_section_info': result.with_section_info or 0,
+                'avg_confidence': round(result.avg_confidence, 2) if result.avg_confidence else 0.3,
+                'severity_levels_in_use': result.severity_levels_in_use or 0,
+                'high_confidence_levels': result.high_confidence_levels or 0,
+                'total_delay_samples': result.total_samples or 0
+            }
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+    
+    finally:
+        session.close()
+
+
 @app.route('/api/health')
 def health_check():
     """Health check endpoint"""
     session = SessionLocal()
     try:
-        # Try to query the database
         result = session.execute(text("SELECT COUNT(*) FROM services"))
         service_count = result.scalar()
         
-        result = session.execute(text("SELECT COUNT(*) FROM live_disruptions WHERE actual_end_time IS NULL"))
+        result = session.execute(text("SELECT COUNT(*) FROM live_disruptions WHERE valid_to IS NULL OR valid_to > NOW()"))
         active_disruptions = result.scalar()
         
         result = session.execute(text("SELECT COUNT(*) FROM live_disruptions"))
         total_disruptions = result.scalar()
         
+        result = session.execute(text("SELECT COUNT(*) FROM severity_levels"))
+        severity_levels = result.scalar()
+        
         return jsonify({
             'status': 'healthy',
             'database': 'connected',
+            'phase': '2B',
             'services_count': service_count,
             'active_disruptions': active_disruptions,
-            'total_disruptions': total_disruptions
+            'total_disruptions': total_disruptions,
+            'severity_levels': severity_levels
         })
     
     except Exception as e:

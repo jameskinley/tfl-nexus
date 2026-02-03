@@ -11,9 +11,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY src/ ./src/
+COPY alembic/ ./alembic/
+COPY alembic.ini .
 
 RUN mkdir -p logs
 
 ENV PYTHONUNBUFFERED=1
 
-CMD ["python", "-m", "src.data.monitor_disruptions"]
+CMD ["python", "-m", "src.data.monitor_disruptions_phase2b"]

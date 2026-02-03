@@ -470,7 +470,7 @@
             <div class="roundel"></div>
             <div class="header-content">
                 <h1>TfL Nexus Dashboard</h1>
-                <p>Real-time Transport Disruption Monitoring</p>
+                <p>Phase 2B: Adaptive Learning & Enhanced Disruption Tracking</p>
             </div>
             <div class="live-badge">
                 <div class="live-dot"></div>
@@ -495,9 +495,9 @@
                 <div class="label">Severe Issues</div>
             </div>
             <div class="stat-card">
-                <div class="icon">🚇</div>
-                <div class="value" id="affectedLines">0</div>
-                <div class="label">Affected Lines</div>
+                <div class="icon">🎯</div>
+                <div class="value" id="avgConfidence">0%</div>
+                <div class="label">Avg Confidence</div>
             </div>
         </div>
 
@@ -652,15 +652,23 @@
                 let html = '<div class="delay-item">';
                 html += '<div class="delay-header">';
                 html += '<div>';
-                html += '<span class="line-name">' + delay.line_name + '</span>';
                 
                 if (lineClass) {
                     html += '<span class="line-badge ' + lineClass + '">' + delay.line_name + '</span>';
                 }
                 
                 html += '<span class="mode-badge ' + modeClass + '">' + delay.mode + '</span>';
+                
+                if (delay.disruption_type) {
+                    html += '<span class="mode-badge" style="background: #f0f0f0; color: #333; border-color: #999;">' + delay.disruption_type + '</span>';
+                }
+                
                 html += '</div>';
-                html += '<div class="severity-badge">' + delay.severity + '</div>';
+                html += '<div class="severity-badge">' + delay.severity;
+                if (delay.delay_minutes > 0) {
+                    html += ' (' + delay.delay_minutes + ' min)';
+                }
+                html += '</div>';
                 html += '</div>';
                 
                 if (delay.description) {
@@ -669,11 +677,28 @@
                     html += '</div>';
                 }
                 
+                if (delay.additional_info) {
+                    html += '<div class="description-box" style="border-left-color: #ffa500;">';
+                    html += '<i class="fas fa-exclamation-triangle"></i> ' + delay.additional_info;
+                    html += '</div>';
+                }
+                
+                if (delay.affected_section && (delay.affected_section.start || delay.affected_section.end)) {
+                    html += '<div class="description-box" style="border-left-color: #9b59b6; background: #f9f5ff;">';
+                    html += '<i class="fas fa-map-marker-alt"></i> Affected section: ';
+                    if (delay.affected_section.start) html += delay.affected_section.start;
+                    if (delay.affected_section.start && delay.affected_section.end) html += ' → ';
+                    if (delay.affected_section.end) html += delay.affected_section.end;
+                    html += '</div>';
+                }
+                
                 html += '<div class="delay-info">';
                 html += '<span><i class="fas fa-clock"></i> ' + formatTimestamp(delay.timestamp) + '</span>';
                 html += '<span><i class="fas fa-database"></i> ' + delay.data_source + '</span>';
-                if (delay.category) {
-                    html += '<span><i class="fas fa-tag"></i> ' + delay.category + '</span>';
+                if (delay.confidence_score) {
+                    const confPercent = (delay.confidence_score * 100).toFixed(0);
+                    const confColor = delay.confidence_score > 0.75 ? '#28a745' : '#ffc107';
+                    html += '<span style="color: ' + confColor + ';"><i class="fas fa-chart-line"></i> ' + confPercent + '% confidence</span>';
                 }
                 html += '</div>';
                 html += '</div>';
@@ -687,10 +712,13 @@
             const totalAvgDelay = summaryData.length > 0 
                 ? summaryData.reduce(function(sum, item) { return sum + item.avg_delay; }, 0) / summaryData.length 
                 : 0;
+            const avgConfidence = summaryData.length > 0
+                ? summaryData.reduce(function(sum, item) { return sum + (item.confidence || 0); }, 0) / summaryData.length
+                : 0;
             
             document.getElementById('totalDelays').textContent = totalDelays;
             document.getElementById('avgDelay').textContent = totalAvgDelay.toFixed(1);
-            document.getElementById('affectedLines').textContent = summaryData.length;
+            document.getElementById('avgConfidence').textContent = (avgConfidence * 100).toFixed(0) + '%';
         }
 
         function renderSeverityBreakdown(breakdown) {
@@ -705,6 +733,9 @@
             
             container.innerHTML = breakdown.map(function(item) {
                 const percentage = ((item.count / total) * 100).toFixed(1);
+                const confidence = item.confidence || 0;
+                const confPercent = (confidence * 100).toFixed(0);
+                const confColor = confidence > 0.75 ? '#28a745' : '#ffc107';
                 
                 let html = '<div class="severity-item">';
                 html += '<div class="severity-header">';
@@ -714,8 +745,9 @@
                 html += '<div class="severity-bar">';
                 html += '<div class="severity-bar-fill" style="width: ' + percentage + '%"></div>';
                 html += '</div>';
-                html += '<div style="margin-top: 0.25rem; font-size: 0.8rem; color: var(--text-secondary);">';
-                html += 'Avg: ' + item.avg_delay.toFixed(1) + ' min';
+                html += '<div style="margin-top: 0.25rem; font-size: 0.8rem; color: var(--text-secondary); display: flex; justify-content: space-between;">';
+                html += '<span>Avg: ' + item.avg_delay.toFixed(1) + ' min</span>';
+                html += '<span style="color: ' + confColor + ';">🎯 ' + confPercent + '%</span>';
                 html += '</div>';
                 html += '</div>';
                 

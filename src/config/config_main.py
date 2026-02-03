@@ -32,6 +32,21 @@ class Phase2Config():
     historical_backfill_days: int = int(os.getenv("HISTORICAL_BACKFILL_DAYS", "90"))
     min_sample_size: int = int(os.getenv("TRANSFER_MIN_SAMPLES", "10"))
     
+    enable_severity_learning: bool = os.getenv("ENABLE_SEVERITY_LEARNING", "true").lower() == "true"
+    learning_sample_interval: int = int(os.getenv("LEARNING_SAMPLE_INTERVAL", "300"))
+    confidence_threshold: float = float(os.getenv("CONFIDENCE_THRESHOLD", "0.75"))
+    high_confidence_threshold: float = float(os.getenv("HIGH_CONFIDENCE_THRESHOLD", "0.9"))
+    min_samples_for_update: int = int(os.getenv("MIN_SAMPLES_FOR_UPDATE", "20"))
+    major_stop_threshold: int = int(os.getenv("MAJOR_STOP_THRESHOLD", "3"))
+    
+    default_frequency_seconds = {
+        "tube": 180,
+        "dlr": 240,
+        "overground": 300,
+        "elizabeth-line": 300,
+        "tram": 360,
+    }
+    
     severity_delay_mapping = {
         "Good Service": 0,
         "Minor Delays": 5,
@@ -46,26 +61,26 @@ class Phase2Config():
     }
     
     top_interchange_stops = [
-        "940GZZLUKSX",  # King's Cross St. Pancras
-        "940GZZLULVT",  # Liverpool Street
-        "940GZZLUVIC",  # Victoria
-        "940GZZLUWLO",  # Waterloo
-        "940GZZLUPAC",  # Piccadilly Circus
-        "940GZZLULST",  # Leicester Square
-        "940GZZLUOXC",  # Oxford Circus
-        "940GZZLUBST",  # Baker Street
-        "940GZZLUBBB",  # Bank/Monument
-        "940GZZLUGPS",  # Green Park
-        "940GZZLUBDS",  # Bond Street
-        "940GZZLUEUS",  # Euston
-        "940GZZLUPAH",  # Paddington
-        "940GZZLUCWR",  # Canary Wharf
-        "940GZZLUTMP",  # Temple
-        "940GZZLUHSK",  # High Street Kensington
-        "940GZZLUEMB",  # Embankment
-        "940GZZLUWSM",  # Westminster
-        "940GZZLUCHL",  # Charing Cross
-        "940GZZLUHPK",  # Hyde Park Corner
+        "940GZZLUKSX",
+        "940GZZLULVT",
+        "940GZZLUVIC",
+        "940GZZLUWLO",
+        "940GZZLUPAC",
+        "940GZZLULST",
+        "940GZZLUOXC",
+        "940GZZLUBST",
+        "940GZZLUBBB",
+        "940GZZLUGPS",
+        "940GZZLUBDS",
+        "940GZZLUEUS",
+        "940GZZLUPAH",
+        "940GZZLUCWR",
+        "940GZZLUTMP",
+        "940GZZLUHSK",
+        "940GZZLUEMB",
+        "940GZZLUWSM",
+        "940GZZLUCHL",
+        "940GZZLUHPK",
     ]
 
 phase2_config = Phase2Config()
